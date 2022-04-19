@@ -23,7 +23,7 @@ import os
 from whitenoise import WhiteNoise
 import itertools
 
-# Instantiate dash app
+# Instantiate dash apprx
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY] ) 
 # Define the underlying flask app (Used by gunicorn webserver in Heroku production deployment)
 server = app.server 
@@ -69,6 +69,7 @@ def init_df():
     vp_start,vs_start,rho_start= [x for i in range(len(lithologies)) for (x,y,z) in [castagna(lithologies[i], depths[i])]],[y for i in range(len(lithologies)) for (x,y,z) in [castagna(lithologies[i], depths[i])]],[z for i in range(len(lithologies)) for (x,y,z) in [castagna(lithologies[i], depths[i])]]
     start_df = pd.DataFrame(dict(THICKNESS = thickness, LITHOLOGY =lithologies, VP=vp_start, VS=vs_start, RHO=rho_start))
     return start_df
+
 start_df = init_df()
 
 TWITTER_LOGO = 'twitterlogo.png'
@@ -76,7 +77,7 @@ GITHUB_LOGO = 'linkedin.jpeg'
 LINKEDIN_LOGO = 'github.png'
 MEDIUM_LOGO = 'medium.png'
 TWITTER_HREF = 'https://twitter.com/StefCrooijmans'
-GITHUB_HREF = 'https://github.com/stefcroo'
+GITHUB_HREF = 'https://github.com/stefcroo/rock-physics'
 LINKEDIN_HREF = 'https://www.linkedin.com/in/stefan-crooijmans-71181095/'
 # MEDIUM_HREF = 'https://stefcroo.medium.com/'
 
@@ -212,7 +213,7 @@ row2_style  = {
    'margin-right' : '30px'
 }
 markdown_style = {
-    'font-size': '.85rem',
+    'font-size': '.87rem',
     'color':'white',
     'margin-left': '5px'
 }
@@ -244,7 +245,7 @@ def add_row(n_clicks,zbml, rows, columns):
         PreventUpdate
     else:
         df = df.replace('',0)
-        layer_thickness = df['THICKNESS'].cumsum()
+        layer_thickness = df.THICKNESS.values.cumsum()
         z = layer_thickness[len(df)-1]+zbml
         a = len(rows)
         # Compute starting TWTf
@@ -268,14 +269,14 @@ def ig_plot(df):
     else:
         intercepts,gradients,labels =  ([] for i in range(3))
         fig = go.Figure()
-        intercepts = [.5 * (((df['VP'].iloc[i+1]-df['VP'].iloc[i])/df.iloc[i]['VP']) + ((df['RHO'].iloc[i+1]-df['RHO'].iloc[i])/df.iloc[i]['RHO'])) for i in range(len(df)-1)]
-        gradients = [((df['VP'].iloc[i+1]-df['VP'].iloc[i])/(2*df.iloc[i]['VP'])) - 4*((df['VP'].iloc[i]/df['VS'].iloc[i])**2)*((df['VS'].iloc[i+1]-df['VS'].iloc[i])/df.iloc[i]['VS']) - 2*((df['VP'].iloc[i]/df['VS'].iloc[i])**2)*((df['RHO'].iloc[i+1]-df['RHO'].iloc[i])/df.iloc[i]['RHO']) for i in range(len(df)-1)] 
+        intercepts = [.5 * (((df.VP.values[i+1]-df.VP.values[i])/df.VP.values[i]) + ((df.RHO.values[i+1]-df.RHO.values[i])/df.RHO.values[i])) for i in range(len(df)-1)]
+        gradients = [((df.VP.values[i+1]-df.VP.values[i])/(2*df.VP.values[i])) - 4*((df.VP.values[i]/df.VS.values[i])**2)*((df.VS.values[i+1]-df.VS.values[i])/df.VS.values[i]) - 2*((df.VP.values[i]/df.VS.values[i])**2)*((df.RHO.values[i+1]-df.RHO.values[i])/df.RHO.values[i]) for i in range(len(df)-1)] 
         maximum = max(max(gradients),-min(gradients))
         maxA = max(max(intercepts),-min(intercepts))
         for i in range(len(df)-1):
-            label = f'{df["LITHOLOGY"][i]} L{df.index[i]+1} -{df["LITHOLOGY"][i+1]} L{df.index[i]+2}'
+            label = f'{df.LITHOLOGY.values[i]} L{df.index[i]+1} -{df.LITHOLOGY.values[i+1]} L{df.index[i]+2}'
             fig.add_trace(go.Scatter(x= [intercepts[i]], y =[gradients[i]],name = label, marker_size=15, opacity =.8, showlegend = False))  
-            fig.add_annotation(x = intercepts[i]+.1, y = gradients[i]+.05*maximum, showarrow = False, text = label, font = dict(size=12))
+            fig.add_annotation(x = intercepts[i], y = gradients[i]+.05*maximum, showarrow = False, text = label, font = dict(size=12))
         fig.update_xaxes(title_text="Intercept", range=[-1.1*maxA,1.1*maxA], zeroline = True,   zerolinewidth = 2, zerolinecolor = 'white',gridcolor= 'rgba(204, 202, 202,.1)')
         fig.update_yaxes(title_text="Gradient (m)", range=[-1.1*maximum,1.1*maximum],  zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
         fig.update_layout({'plot_bgcolor': 'rgba(43, 43, 64,1)',
@@ -285,7 +286,7 @@ def ig_plot(df):
         )
 
         fig.add_trace(go.Scatter(
-            x=[.2, 0, -.2, -.2],
+            x=[.1, 0, -.1, -.1],
             y=[-.7*maximum,-.7*maximum,-.7*maximum, .3*maximum],
             text=['Class I', 'Class II/IIp', 'Class III', 'Class IV'],
             textfont = dict(
@@ -302,7 +303,7 @@ def rfc_plots(df, max_angle):
         PreventUpdate
     else:
         theta_range = [x for x in range(0,max_angle+1,1)]
-        vp, vs, rho = df['VP'], df['VS'],df['RHO']
+        vp, vs, rho = df.VP.values, df.VS.values,df.RHO.values
         # Calculate Reflection Coefficients
         rc = [bruges.reflection.zoeppritz(vp[i], vs[i], rho[i], vp[i+1], vs[i+1], rho[i+1], theta_range) for i in range(len(df)-1)]
         rfc_list = [i.real for i in rc]
@@ -310,7 +311,7 @@ def rfc_plots(df, max_angle):
         fig  =go.Figure()
         for i in range(len(df)-1):
             fig.add_trace(go.Scatter(x= theta_range, y =rfc_list[i],mode = 'lines', line=dict(width = 2), name = f'L{i}-{i+1}'))
-            fig.add_annotation(x= 15, y =rfc_list[i][0]+.01, showarrow=False, text = f'{df["LITHOLOGY"][i]} L{i+1} - {df["LITHOLOGY"][i+1]} L{i+2}', font = dict(size=12))
+            fig.add_annotation(x= 15, y =rfc_list[i][0]+.01, showarrow=False, text = f'{df.LITHOLOGY.values[i]} L{i+1} - {df.LITHOLOGY.values[i+1]} L{i+2}', font = dict(size=12))
         # Set plot range based on data
         maximum = max([max(sorted(l), key=abs) for l in rfc_list], key = abs)
         fig.update_xaxes(title_text="Angle of Incidence", showline = True, range=  [0, max_angle], linewidth = 2, linecolor = 'black', zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
@@ -329,8 +330,18 @@ def eei_calc(vp, vs, rho, chi,k):
     return eei
 
 def eei_fig(df):
-    vp,vs,rho =df['VP'], df['VS'],df['RHO']
-    vp_norm,vs_norm,rho_norm = statistics.mean(df['VP']),statistics.mean(df['VS']),statistics.mean(df['RHO'])
+    vp,vs,rho =df.VP.values, df.VS.values,df.RHO.values
+    vp_norm,vs_norm,rho_norm = statistics.mean(vp),statistics.mean(vs),statistics.mean(rho)
+
+
+
+
+
+
+
+
+
+
 
     chis,eei_list, k = [x for x in range(-90,91)],[], .25
     eei_90,eei_60,eei_30,eei_0,eeimin30,eeimin60,eeimin90= eei_calc(vp,vs,rho,90,k),eei_calc(vp,vs,rho,60,k),eei_calc(vp,vs,rho,30,k),eei_calc(vp,vs,rho,0,k),eei_calc(vp,vs,rho,-30,k),eei_calc(vp,vs,rho,-60,k),eei_calc(vp,vs,rho,-90,k)
@@ -345,7 +356,7 @@ def eei_fig(df):
         (rho[i]/rho_norm)**(math.cos(math.radians(chi))-4*k*math.sin(math.radians(chi)))) for chi in chis]
         eei_list.append(eei)
         fig.add_trace(go.Scatter(x=chis, y =eei, line=dict(width = 2), showlegend = False))
-        fig.add_annotation(x= chis[25], y =eei[20], showarrow=False, text = f'{df["LITHOLOGY"][i]} L{i}', font = dict(size=12,color= 'white'))
+        fig.add_annotation(x= chis[25], y =eei[20], showarrow=False, text = f'{df.LITHOLOGY.values[i]} L{i}', font = dict(size=12,color= 'white'))
     
     # Set plot range based on data
     maximum = max([max(sorted(l), key=abs) for l in eei_list], key = abs)+1000
@@ -404,7 +415,33 @@ def eei_fig(df):
                                             ),
    )                                   
     return fig,eei_datatable
-  
+
+def gen_wavelet(f, phase, depth_list):
+    # Wavelet Parameters
+    dt = .0001
+    length = len(depth_list)*dt
+    # t0 and y define the ricker wavelet
+    phase_rad = phase*math.pi/180
+    t0 = np.arange(-length/2, (length-dt)/2, dt)
+    y = (1.0 - 2.0*(np.pi**2)*(f**2)*(t0**2)) * np.exp(-(np.pi**2)*(f**2)*(t0**2))
+    # Apply phase shift
+    x = hilbert(y)   
+    y = math.cos(phase_rad)*x.real - math.sin(phase_rad)*x.imag
+    return t0,x,y
+
+def gen_wavelet_fig(t0, y):
+    # Create figure for wavelet
+    wavelet_fig = go.Figure()
+    wavelet_fig.add_trace(go.Scatter(x= t0, y =y, name = 'wavelet', line=dict(width = 2, color = 'white')))
+    wavelet_fig.update_yaxes(title_text="Amplitude", range=[min(y), max(y)], zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
+    wavelet_fig.update_xaxes(title_text="t0 (s)", range=[min(t0), max(t0)], zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
+    wavelet_fig.update_layout({'plot_bgcolor': 'rgba(43, 43, 64,1)',
+                            'paper_bgcolor': 'rgba(71, 71, 107, 1)'})
+    wavelet_fig.update_layout(autosize = False,font_color="rgba(255, 255, 255, 1)", 
+        height = 320, width = 500    
+    )
+    return wavelet_fig
+
 def log_plots(df, max_angle, f, scale, phase):
     # depth_list = gen_depth_list(df)    
     depth_list,vp_list,vs_list,rho_list,ai_list,pr_list,AI_rfc_list,vpvs_list, lithology_list, lith_num,eei_list =  ([] for i in range(11))
@@ -416,91 +453,37 @@ def log_plots(df, max_angle, f, scale, phase):
                         subplot_titles=("Lithology","Vp", "Vs", "Rho", "AI", "RFC", "AVO Synthetic"))
     fig.update_annotations(font_size=12)
 
-    vp_norm, vs_norm, rho_norm = statistics.mean(df['VP']), statistics.mean(df['VS']), statistics.mean(df['RHO'])
     angles, chis = [0, max_angle+1,1], range(-90,91,30)
     k, sample_rate_depth = .25, .1524
     EEImin90, EEImin60, EEImin45, EEImin30, EEI0, EEIplus30, EEIplus45, EEIplus60, EEIplus90 = ([] for i in range(9))   
     eei_lists = [EEImin90, EEImin60, EEImin45, EEImin30, EEI0, EEIplus30, EEIplus45, EEIplus60, EEIplus90]
 
-    depths = [np.arange(df.iloc[i]['DEPTH'], df.iloc[i]['DEPTH']+df.iloc[i]['THICKNESS'], sample_rate_depth) for i in range(len(df))]
+    depths = [np.arange(df.DEPTH.values[i], df.DEPTH.values[i]+df.THICKNESS.values[i], sample_rate_depth) for i in range(len(df))]
     ns = [len(x) for x in depths]
     
-    lithology = df['LITHOLOGY']
-    # l_num = [[dictionary][df['LITHOLOGY'].iloc[i]]['lith_num'] for i in range(len(lithology))]
+    lithology = df.LITHOLOGY.values
     l_nums = [ns[i]*[1] for i in range(len(ns))]
     l_liths = [ns[i]*lithology[i] for i in range(len(ns))]
-    color = [ns[i]*dictionary[df['LITHOLOGY'].iloc[i]]['color'] for i in range(len(lithology))]
-    vp,vs,rho, ai, vpvs, pr = [ns[i]*[df.iloc[i]['VP']] for i in range(len(df))],[ns[i]*[df.iloc[i]['VS']] for i in range(len(df))],[ns[i]*[df.iloc[i]['RHO']] for i in range(len(df))],[ns[i]*[df.iloc[i]['AI']] for i in range(len(df))],[ns[i]*[df.iloc[i]['VP/VS']] for i in range(len(df))],[ns[i]*[df.iloc[i]['PR']] for i in range(len(df))]
-    colors, depth_list, vp_list,vs_list,rho_list,ai_list,vpvs_list,pr_list = list(itertools.chain.from_iterable(color)),list(itertools.chain.from_iterable(depths)),list(itertools.chain.from_iterable(vp)),list(itertools.chain.from_iterable(vs)),list(itertools.chain.from_iterable(rho)),list(itertools.chain.from_iterable(ai)),list(itertools.chain.from_iterable(vpvs)),list(itertools.chain.from_iterable(pr))
+    color = [ns[i]*dictionary[df.LITHOLOGY.values[i]]['color'] for i in range(len(lithology))]
+    vp,vs,rho, ai= [ns[i]*[df.VP.values[i]] for i in range(len(df))],[ns[i]*[df.VS.values[i]] for i in range(len(df))],[ns[i]*[df.RHO.values[i]] for i in range(len(df))],[ns[i]*[df.AI.values[i]] for i in range(len(df))]
+    colors, depth_list, vp_list,vs_list,rho_list,ai_list= list(itertools.chain.from_iterable(color)),list(itertools.chain.from_iterable(depths)),list(itertools.chain.from_iterable(vp)),list(itertools.chain.from_iterable(vs)),list(itertools.chain.from_iterable(rho)),list(itertools.chain.from_iterable(ai))
+    color = [dictionary[lithology[i]]['color']  for i in range(len(df))]
 
     for i in range(len(df)):
-        color = dictionary[lithology[i]]['color'] 
-        fig.add_hline(y=depths[0], line= dict(width =4, color ='black'))        
-        fig.add_trace(go.Scatter(x=len(depths[i])*[1], y=  depths[i], fill ='tozerox', fillcolor= color, showlegend = False), row=1, col=1)
+        fig.add_trace(go.Scatter(x=len(depths[i])*[1], y=  depths[i], fill ='tozerox', fillcolor= color[i], showlegend = False), row=1, col=1)
 
-        eei = [vp_norm*rho_norm*
-        ((df['VP'].iloc[i]/vp_norm)**(math.cos(math.radians(-90))+math.sin(math.radians(-90))))*
-        ((df['VS'].iloc[i]/vs_norm)**(-8*k*math.sin(math.radians(chi)))*
-        (df['RHO'].iloc[i]/rho_norm)**(math.cos(math.radians(-90))-4*k*math.sin(math.radians(-90)))) for chi in chis]
-
-    EEIlogs = go.Figure()
-    EEIchifigs= [x for x in range(-90,91, 30)]
-    EEIlogs= go.Figure()
-    max_list, min_list = ([] for i in range(2))
-    for x in range(len(EEIchifigs)): 
-        EEI = [ns[i]*[vp_norm*rho_norm*
-        ((df['VP'].iloc[i]/vp_norm)**(math.cos(math.radians(EEIchifigs[x]))+math.sin(math.radians(EEIchifigs[x]))))*
-        ((df['VS'].iloc[i]/vs_norm)**(-8*k*math.sin(math.radians(EEIchifigs[x])))*
-        (df['RHO'].iloc[i]/rho_norm)**(math.cos(math.radians(EEIchifigs[x]))-4*k*math.sin(math.radians(EEIchifigs[x]))))] for i in range(len(ns))]
-        EEI_x = list(itertools.chain.from_iterable(EEI))
-        EEIlogs.add_trace(go.Scatter(x= EEI_x, y =depth_list,name = f'EEI{EEIchifigs[x]}'))
-    
-        maximum = max(sorted(EEI_x), key=abs)
-        minimum = max(sorted(EEI_x), key=abs)
-        max_list.append(maximum)
-        min_list.append(minimum)
-    EEIlogs.update_yaxes(title_text="Amplitude", range=[min(depth_list), max(depth_list)], zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
-    EEIlogs.update_xaxes(title_text="t0 (s)", range=[.9*min(min_list), 1.1*max(max_list)], zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
-    EEIlogs.update_layout({'plot_bgcolor': 'rgba(43, 43, 64,1)',
-                            'paper_bgcolor': 'rgba(71, 71, 107, 1)'})
-    EEIlogs.update_layout(autosize = False,
-                            height = 400, width = 600,
-                            font_color="rgba(255, 255, 255, 1)", 
-                            )
     # Reflection Coefficients in Depth at 0 
-    for i in range(len(ai_list)-1):
-        AI_rfc_list.append((ai_list[i+1]-ai_list[i])/(ai_list[i+1]+ai_list[i]))
+    
+    AI_rfc_list=[(ai_list[i+1]-ai_list[i])/(ai_list[i+1]+ai_list[i]) for i in range(len(ai_list)-1)]
     AI_rfc_list.append(AI_rfc_list[-1])    
-
-    # Wavelet Parameters
-    dt = .0001
-    length = len(vp_list)*dt
-    # t0 and y define the ricker wavelet
-    phase_rad = phase*math.pi/180
-    t0 = np.arange(-length/2, (length-dt)/2, dt)
-    y = (1.0 - 2.0*(np.pi**2)*(f**2)*(t0**2)) * np.exp(-(np.pi**2)*(f**2)*(t0**2))
-    # Apply phase shift
-    x = hilbert(y)   
-    y = math.cos(phase_rad)*x.real - math.sin(phase_rad)*x.imag
-
-    # Create figure for wavelet
-    wavelet_fig = go.Figure()
-    wavelet_fig.add_trace(go.Scatter(x= t0, y =y, name = 'wavelet', line=dict(width = 2, color = 'white')))
-    wavelet_fig.update_yaxes(title_text="Amplitude", range=[min(y), max(y)], zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
-    wavelet_fig.update_xaxes(title_text="t0 (s)", range=[min(t0), max(t0)], zeroline = True, zerolinewidth = 2, zerolinecolor = 'white',  gridcolor = 'rgba(204, 202, 202,.1)')
-    wavelet_fig.update_layout({'plot_bgcolor': 'rgba(43, 43, 64,1)',
-                            'paper_bgcolor': 'rgba(71, 71, 107, 1)'})
-    wavelet_fig.update_layout(autosize = False,font_color="rgba(255, 255, 255, 1)", 
-        height = 320, width = 500    
-    )
-
-
+    t0,x,y = gen_wavelet(f, phase, depth_list)
+    wavelet_fig = gen_wavelet_fig(t0,y)
     # Subsample time/depth by interpolating values to convert Reflectivity Series to time.  
-    max_time =[df['TWT'].iloc[-1]+ (2*df['THICKNESS'].iloc[-1]/df['VP'].iloc[-1])]
+    max_time =[df.TWT.values[-1]+ (2*df.THICKNESS.values[-1]/df.VP.values[-1])]
     # df['DEPTH'] = depth_list
-    max_depth = [df['DEPTH'].iloc[-1] + df['THICKNESS'].iloc[-1]]
-    ts = list(df['TWT'])+max_time
-    zs =list(df['DEPTH'])+max_depth
+    max_depth = [df.DEPTH.values[-1] + df.THICKNESS.values[-1]]
+    ts = list(df.TWT.values)+max_time
+    zs =list(df.DEPTH.values)+max_depth
     twt_f = interp1d(zs, ts)
     # Sub sample using steps
     twts = twt_f(depth_list)
@@ -521,8 +504,7 @@ def log_plots(df, max_angle, f, scale, phase):
         r_series =[(bruges.reflection.zoeppritz(vp_list[i], vs_list[i],rho_list[i],
                                     vp_list[i+1], vs_list[i+1],rho_list[i+1], angle)).real for i in range(len(vp_list)-1)]
         r_series.append(r_series[-1])    
-        angle_synthetic = np.convolve(y, r_series, mode = 'same')
-        angle_synthetic = angle_synthetic *scale
+        angle_synthetic = np.convolve(y, r_series, mode = 'same')*scale
         syns.append(angle_synthetic)
     # Add every trace to figure and add n*i to put the trace at right angle
     for i in range(len(syns)):
@@ -567,7 +549,7 @@ def log_plots(df, max_angle, f, scale, phase):
                             'paper_bgcolor': 'rgba(71, 71, 107, 1)'})
     # Add annotation to plot to indicate layers
     for i in range(len(df)):
-        fig.add_annotation(x= .5, y =(df['DEPTH'].iloc[i]+df['THICKNESS'].iloc[i]/2), showarrow=False, font = dict(color = 'rgba(0,0,0)'), text = f'{df.iloc[i]["LITHOLOGY"]}')
+        fig.add_annotation(x= .5, y =(df.DEPTH.values[i]+df.THICKNESS.values[i]/2), showarrow=False, font = dict(color = 'rgba(0,0,0)'), text = f'{df.LITHOLOGY.values[i]}')
     fig.add_annotation(x= .9*max(vp_list), y =.05*max(zs), row= 1, col=2, showarrow=False,text = 'VP', font = dict(
                                         size=15,
                                         color = 'rgba(240, 103, 146, .9)'))
@@ -579,32 +561,29 @@ def log_plots(df, max_angle, f, scale, phase):
     fig.add_annotation(x= .9*max(rho_list), y =.05*max(zs), row= 1, col=4, showarrow=False,text = 'Rho', font = dict(
                                         size=15,
                                         color = 'rgba(213, 255, 5, .9)'))
-    return fig, wavelet_fig,EEIlogs
+    return fig, wavelet_fig
 
 def calculate_properties(df, zbml):
-    df['LAYER'] = df.index+1
-    df['TOTAL_THICKNESS'] = df['THICKNESS'].cumsum()
-    df['TWT_INTERVAL'] =2*df['THICKNESS']/ df['VP']
-    df['TOTAL_TWT'] = df['TWT_INTERVAL'].cumsum()
+    layers = df.index+1
+    total_thickness = df.THICKNESS.values.cumsum()
+    twt_interval =2*df.THICKNESS.values/ df.VP.values
+    total_twt = twt_interval.cumsum()
     # Compute depth and TWT at top of Layer
     start_time = 2*zbml/1500
     depths,times = ([] for i in range(2))
-    depths = [zbml if i==0 else df.iloc[i-1]['TOTAL_THICKNESS']+zbml for i in range(len(df))]
-    times= [start_time if i==0 else df.iloc[i-1]['TOTAL_TWT']+start_time for i in range(len(df))]
-    df['DEPTH'] = depths
-    df['TWT'] = times 
-    df['AI'] = df['VP']* df['RHO']
-    df['VP/VS'] = df['VP']/df['VS']
-    df['PR'] = ((df['VP']/df['VS'])**2-2)/(2*(df['VP']/df['VS'])**2-2)
-    df['K'] = df['RHO']*((df['VP']*0.3048)**2-(4/3)*(df['VS']*0.3048)**2)*0.000001
-    df['MU'] = (df['VS']*0.3048)**2*df['RHO']*0.000001
-    df['E'] =  9*df['K']*df['MU']/(3*df['K']+df['MU'])
-    df['SI']  = df['RHO']*df['VS']
-    return df
+    depths = [zbml if i==0 else total_thickness[i-1]+zbml for i in range(len(df))]
+    times= [start_time if i==0 else total_twt[i-1]+start_time for i in range(len(df))]
+    ai = df.VP.values* df.RHO.values
+    vpvs = df.VP.values/df.VS.values
+    pr = ((df.VP.values/df.VS.values)**2-2)/(2*(df.VP.values/df.VS.values)**2-2)
+    k = df.RHO.values*((df.VP.values*0.3048)**2-(4/3)*(df.VS.values*0.3048)**2)*0.000001
+    mu = (df.VS.values*0.3048)**2*df.RHO.values*0.000001
+    e =  9*k*mu/(3*k+mu)
+    si  = df.RHO.values*df.VS.values
 
-def output_table(df):
-    df_output =  df[['LAYER','DEPTH','TWT','AI','SI','VP/VS','PR','K','MU','E']]
-    #Formating output dataframe
+    df['DEPTH'], df['TWT'],df['AI'] = depths, times, ai
+
+    df_output =  pd.DataFrame(dict(LAYER = layers, DEPTH =depths, TWT=times, AI=ai, VP_VS=vpvs, PR=pr, K=k, MU=mu, E=e, SI=si))
     cols_dt = [
     dict(id = 'LAYER', name = 'LAYER', type = 'numeric', format = Format(precision=0, scheme = Scheme.fixed)),
     dict(id = 'DEPTH', name = 'DEPTH', type = 'numeric', format = Format(precision=0, scheme = Scheme.fixed)),
@@ -653,16 +632,17 @@ def output_table(df):
                                                     }
                                                 ),
         ])   
-    return output_datatable
+    return df,output_datatable
+
 @app.callback(
     [
     Output('output-synthetic', 'figure'),
     Output('AvO-plot', 'figure'), 
     Output('IG-plot', 'figure'),
     Output('EEI-plot', 'figure'), 
-    Output("wavelet-fig", "figure"),
     Output('datatable-output', 'children'),
     Output('eei-datatable-output', 'children'),
+    Output('wavelet-fig', 'figure')
     ]
     ,
     [Input('our-table', 'data'), Input('zbml', 'value'), Input('scale', 'value'), Input('frequency', 'value'), Input('max-angle','value'),  Input('phase-shift','value')])
@@ -672,13 +652,12 @@ def display_graph(data, zbml, scale, frequency, max_angle, phase):
         PreventUpdate
     else:
         df = df.replace('',0)
-        df = calculate_properties(df, zbml)
-        output_datatable = output_table(df)
+        df, output_datatable = calculate_properties(df, zbml)
         IGplot = ig_plot(df)
         AVOplot  =rfc_plots(df, max_angle)
         EEIfig, eei_datatable = eei_fig(df)
-        LOGplot, wavelet_fig,EEIlogs = log_plots(df, max_angle,frequency, scale, phase)
-        return LOGplot,AVOplot,IGplot, EEIfig,wavelet_fig, output_datatable,eei_datatable
+        LOGplot,wavelet_fig = log_plots(df, max_angle,frequency, scale, phase)
+        return LOGplot,AVOplot,IGplot, EEIfig, output_datatable,eei_datatable,wavelet_fig
     
 def create_dash_layout(app):
     # Set browser tab title
@@ -700,10 +679,10 @@ def create_dash_layout(app):
 
                                                 ], style=subheader_style),
                                                 html.Br(),
-                                                html.Ul('1. Edit the input parameters. Adjust the depth at the top of the layered model and edit the input data table by clicking on the cells and/or editing the number of layers.',style= markdown_style),
+                                                html.Ul('1. Edit the input parameters. Adjust the depth at the top of your layered model and edit the input data table by clicking on the cells and editing the number of layers.',style= markdown_style),
                                                 html.Ul('2. Adjust the frequency and phase of the wavelet used to convolve the reflectivity series.',style= markdown_style),
-                                                html.Ul('3. Check the results. Use the sliders to adjust the angle of incidence and scaling factors.', style= markdown_style),
-                                                html.Ul('4. Download the output figures and data tables.', style= markdown_style),
+                                                html.Ul('3. Analyse the results. Customize the AvO synthetic using the sliders.', style= markdown_style),
+                                                html.Ul('4. Download your custom data table and results by hovering over the figures.', style= markdown_style),
                                                 html.Ul('5. Share your work with colleagues, leave some feedback, and check out the source code!', style= markdown_style),
 
                                             ]),
@@ -713,12 +692,12 @@ def create_dash_layout(app):
 
                                                     ], style=subheader_style),
                                                     html.P(["""
-                                                    The acoustic response of rocks measured by seismic data is directly related to relative compressional wave velocity (Vp), shear wave velocity (Vs), and density (Rho) of bounding lithologies.
-                                                    Rock properties are impacted by basin evolution, provenance, chemical and mechanical compaction, which in turn effect pore space, fluid fill, mineralogy, saturation, and clay-content observed in rock samples. 
+                                                    The amplitude response of rocks measured by seismic data is directly related to contrasts in rock properties like compressional wave velocity (Vp), shear wave velocity (Vs), and density (Rho) across bounding lithologies.
+                                                    These rock properties are impacted by basin scale factors like provenance, diagenesis, and mechanical compaction which affect the pore space, fluid fill, mineralogy, saturation, and clay-content in rock samples. 
                                                     """,
                                                     html.Br(),html.Br(),
                                                     """
-                                                    Amplitude versus Offset (AvO) and Extended Elastic Impedance are derived from Vp, Vs, and Rho and are used to discriminate lithology and fluid responses. 
+                                                    Amplitude response as a function of offset (AvO) and Extended Elastic Impedance are commonly used to discriminate lithology and fluid response and can be derived from Vp, Vs, and Rho. 
                                                     """,
 
                                                     html.Br(), html.Br(),
@@ -887,7 +866,7 @@ def create_dash_layout(app):
                                     )
                                         
                                     ]),
-                                    dcc.Tab(id = 'phase-shift-tab', label = 'Phase Shift', 
+                                    dcc.Tab(id = 'phase-shift-tab', label = 'Phase Rotation', 
                                     style=tab_style, selected_style=tab_selected_style,                
                                     children = [
                                     html.Div(className = 'slider', children = [
